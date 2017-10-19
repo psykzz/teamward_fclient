@@ -31,7 +31,21 @@ class NoActiveMatch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return new Center(
-      child: new Text("No game found."),
+      child: new Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          new Text(
+            'No Game found',
+          ),
+          new Divider(),
+          new RaisedButton(
+            child: new Text('Refresh'),
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -90,7 +104,7 @@ class TeamMemberItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return new ListTile(
-      leading: new Image.network("http://ddragon.leagueoflegends.com/cdn/5.5.1/img/champion/${this.champion}.png"),
+      leading: new Image.network("http://ddragon.leagueoflegends.com/cdn/7.20.3/img/champion/${this.champion}.png"),
       title: new Text(
         champion,
         textScaleFactor: 1.0,
@@ -120,7 +134,7 @@ class SummonerDrawerItem extends StatelessWidget  {
   @override
   Widget build(BuildContext context) {
     return new ListTile(
-      leading: new Image.network("http://ddragon.leagueoflegends.com/cdn/5.5.1/img/profileicon/1.png"),
+      leading: new Image.network("http://ddragon.leagueoflegends.com/cdn/7.20.3/img/profileicon/1.png"),
       title: new Text(
         summonerName,
         textScaleFactor: 1.1,
@@ -132,19 +146,7 @@ class SummonerDrawerItem extends StatelessWidget  {
 }
 
 
-final Widget defaultBodyPart = new Center(
-  child: new Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: <Widget>[
-      new Text(
-        'You have pushed the button this many times:',
-      ),
-      new Text(
-        'no counter sorry',
-      ),
-    ],
-  ),
-);
+final Widget defaultBodyPart = new NoActiveMatch();
 
 class _DefaultPageState extends State<DefaultPage> {
   final List<Tab> headerTabs = <Tab>[
@@ -160,13 +162,27 @@ class _DefaultPageState extends State<DefaultPage> {
     return res;
   }
 
+
   void _setActiveSummoner(String summoner, String region) async {
 
 
     var blueTeamMembers = <TeamMemberItem>[];
     var redTeamMembers = <TeamMemberItem>[];
-
-    var matchData = await _getMatchDetails(summoner, region);
+    var matchData;
+    try {
+      matchData = await _getMatchDetails(summoner, region);
+    } catch (e) {
+      setState(() {
+        bodyPart = new TabBarView(
+          children: <Widget> [
+            new NoActiveMatch(),
+            new NoActiveMatch(),
+            new Center(child: new Text('No tips just yet.')),
+          ],
+        );
+      });
+      return;
+    }
     matchData['teams'].forEach((team) {
       // create the blue team
       if(team['team_id'] == 100) {
@@ -236,6 +252,13 @@ class _DefaultPageState extends State<DefaultPage> {
                 summonerName: 'H1twoman',
                 onTap: (BuildContext context) {
                   _setActiveSummoner('H1twoman', 'euw');
+                  Navigator.pop(context);
+                }
+              ),
+              new SummonerDrawerItem(
+                summonerName: 'Neamar',
+                onTap: (BuildContext context) {
+                  _setActiveSummoner('neamar', 'euw');
                   Navigator.pop(context);
                 }
               ),
