@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-var http = createHttpClient();
+import 'drawer.dart';
+import 'no-match.dart';
+import 'match.dart';
+import 'api.dart';
 
 
 void main() {
@@ -26,125 +27,6 @@ class DefaultPage extends StatefulWidget {
   _DefaultPageState createState() => new _DefaultPageState();
 }
 
-class NoActiveMatch extends StatelessWidget {
-
-  @override
-  Widget build(BuildContext context) {
-    return new Center(
-      child: new Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          new Text(
-            'No Game found',
-          ),
-          new Divider(),
-          new RaisedButton(
-            child: new Text('Refresh'),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class Match extends StatelessWidget {
-  Match({
-    @required this.blueTeam,
-    @required this.redTeam
-  }) : assert (redTeam != null),
-  assert (blueTeam != null);
-
-  final List<Widget> blueTeam;
-  final List<Widget> redTeam;
-
-  @override
-  Widget build(BuildContext context) {
-    return new Scaffold(
-      body: new ListView(
-        children: blueTeam
-      )
-    );
-  }
-}
-
-class TeamTab extends StatelessWidget {
-  TeamTab({
-    @required this.teamMembers,
-  }) : assert (teamMembers != null);
-
-  final List<TeamMemberItem> teamMembers;
-
-  @override
-  Widget build(BuildContext context) {
-    return new Scaffold(
-      body: new ListView(
-        children: teamMembers
-      )
-    );
-  }
-}
-
-class TeamMemberItem extends StatelessWidget {
-  TeamMemberItem({
-    this.champion,
-    this.summonerName,
-    this.level,
-    this.onTap,
-  });
-
-  final String champion;
-  final String summonerName;
-  final int level;
-
-  final ValueChanged<BuildContext> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return new ListTile(
-      leading: new Image.network("http://ddragon.leagueoflegends.com/cdn/7.20.3/img/champion/${this.champion}.png"),
-      title: new Text(
-        champion,
-        textScaleFactor: 1.0,
-        style: new TextStyle(fontWeight: FontWeight.bold),
-      ),
-      subtitle: new Text(
-        "${summonerName}\n${level}",
-        textScaleFactor: 1.0,
-        style: new TextStyle(fontWeight: FontWeight.bold),
-      ),
-      isThreeLine: true,
-      onTap: onTap == null ? null : () { onTap(context); },
-    );
-  }
-
-}
-
-class SummonerDrawerItem extends StatelessWidget  {
-  SummonerDrawerItem({
-    @required this.summonerName,
-    this.onTap,
-  }) : assert(summonerName != null);
-
-  final String summonerName;
-  final ValueChanged<BuildContext> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return new ListTile(
-      leading: new Image.network("http://ddragon.leagueoflegends.com/cdn/7.20.3/img/profileicon/1.png"),
-      title: new Text(
-        summonerName,
-        textScaleFactor: 1.1,
-        style: new TextStyle(fontWeight: FontWeight.bold),
-      ),
-      onTap: onTap == null ? null : () { onTap(context); },
-    );
-  }
-}
-
 
 final Widget defaultBodyPart = new NoActiveMatch();
 
@@ -156,21 +38,12 @@ class _DefaultPageState extends State<DefaultPage> {
   ];
   Widget bodyPart = defaultBodyPart;
 
-  void _getMatchDetails(String summoner, String region) async {
-    var response = await http.read('https://app.teamward.xyz/game/data?summoner=${summoner}&region=${region}&client=psykzz');
-    var res = JSON.decode(response);
-    return res;
-  }
-
-
-  void _setActiveSummoner(String summoner, String region) async {
-
-
+  Future<void> _setActiveSummoner(String summoner, String region) async {
     var blueTeamMembers = <TeamMemberItem>[];
     var redTeamMembers = <TeamMemberItem>[];
     var matchData;
     try {
-      matchData = await _getMatchDetails(summoner, region);
+      matchData = await getMatchDetails(summoner, region);
     } catch (e) {
       setState(() {
         bodyPart = new TabBarView(
@@ -181,7 +54,7 @@ class _DefaultPageState extends State<DefaultPage> {
           ],
         );
       });
-      return;
+      return null;
     }
     matchData['teams'].forEach((team) {
       // create the blue team
@@ -219,10 +92,41 @@ class _DefaultPageState extends State<DefaultPage> {
         ],
       );
     });
+    return null;
   }
+
 
   @override
   Widget build(BuildContext context) {
+
+    // TODO: Pull from store?
+    var summoners = {
+      'PsyKzz': 'euw',
+      'Neamar': 'euw',
+      'h1twoman': 'euw',
+    };
+
+    // TODO: Remove upper margin on this item?
+    var summonerWidgets = <Widget>[
+      new DrawerHeader(
+        margin: null,
+        padding: const EdgeInsets.all(0.0),
+        child: new Image.network("https://raw.githubusercontent.com/Neamar/teamward-client/master/app/src/main/res/drawable-hdpi/banner.jpg"),
+      ),
+    ];
+
+    summoners.forEach((summonerName, realm) {
+        var widget = new SummonerDrawerItem(
+          summonerName: summonerName,
+          realm: realm,
+          onTap: (BuildContext context) {
+            _setActiveSummoner(summonerName, realm);
+            Navigator.pop(context);
+          }
+      );
+      summonerWidgets.add(widget);
+    });
+
     return new DefaultTabController(
       length: headerTabs.length,
       child: new Scaffold(
@@ -236,40 +140,7 @@ class _DefaultPageState extends State<DefaultPage> {
           child: new ListView(
             // shrinkWrap: true,
             padding: const EdgeInsets.all(0.0),
-            children: <Widget>[
-              new DrawerHeader(
-                padding: const EdgeInsets.all(0.0),
-                child: new Image.network("https://i0.wp.com/www.adventuresinpoortaste.com/wp-content/uploads/2015/11/helmet-bro-sword.png")
-              ),
-              new SummonerDrawerItem(
-                summonerName: 'PsyKzz',
-                onTap: (BuildContext context) {
-                  _setActiveSummoner('psykzz', 'euw');
-                  Navigator.pop(context);
-                }
-              ),
-              new SummonerDrawerItem(
-                summonerName: 'H1twoman',
-                onTap: (BuildContext context) {
-                  _setActiveSummoner('H1twoman', 'euw');
-                  Navigator.pop(context);
-                }
-              ),
-              new SummonerDrawerItem(
-                summonerName: 'Neamar',
-                onTap: (BuildContext context) {
-                  _setActiveSummoner('neamar', 'euw');
-                  Navigator.pop(context);
-                }
-              ),
-              new SummonerDrawerItem(
-                summonerName: 'Razor2k10',
-                onTap: (BuildContext context) {
-                  _setActiveSummoner('razor2k10', 'euw');
-                  Navigator.pop(context);
-                }
-              ),
-            ],
+            children: summonerWidgets,
           )
         ),
         body: bodyPart,
